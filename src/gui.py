@@ -3,11 +3,13 @@ gui.py — Interfaz gráfica del Spotify Downloader v7.0
 Usa customtkinter para una experiencia premium tipo aplicación de música.
 """
 
+import os
 import threading
+from tkinter import filedialog
 import customtkinter as ctk
 
 # Motor de descarga (toda la lógica vive en engine.py)
-from engine import SpotifyMetadata, Downloader
+from engine import SpotifyMetadata, Downloader, get_base_dir
 
 # ──────────────────────────────────────────────
 #  Tema: Spotify Dark Premium
@@ -41,7 +43,9 @@ class App(ctk.CTk):
 
         self._is_downloading = False
         self._stop_event: threading.Event | None = None
+        self.download_path = os.path.join(get_base_dir(), "descargas")
         self._build_ui()
+        self.iconbitmap("assets/icon.ico")
 
     # ── Construcción UI ────────────────────────────────────────────
     def _build_ui(self):
@@ -132,6 +136,40 @@ class App(ctk.CTk):
         # Se muestra solo durante la descarga
         self.stop_btn.pack_forget()
 
+        # ─ Directory Row ──────────────────────────────────────────
+        dir_row = ctk.CTkFrame(url_card, fg_color="transparent")
+        dir_row.pack(fill="x", padx=14, pady=(0, 14))
+
+        self.dir_entry = ctk.CTkEntry(
+            dir_row,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            height=32,
+            corner_radius=8,
+            fg_color=C_SURFACE2,
+            border_color=C_BORDER,
+            border_width=1,
+            text_color=C_SUBTEXT,
+        )
+        self.dir_entry.insert(0, self.download_path)
+        self.dir_entry.configure(state="readonly")
+        self.dir_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        self.dir_btn = ctk.CTkButton(
+            dir_row,
+            text="Cambiar Carpeta",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            height=32,
+            width=130,
+            corner_radius=8,
+            fg_color=C_SURFACE2,
+            hover_color=C_BORDER,
+            text_color=C_TEXT,
+            border_width=1,
+            border_color=C_BORDER,
+            command=self._choose_directory,
+        )
+        self.dir_btn.pack(side="right", padx=(0, 8))
+
         # ─ Progress ───────────────────────────────────────────────
         prog_frame = ctk.CTkFrame(content, fg_color="transparent")
         prog_frame.pack(fill="x", pady=(0, 10))
@@ -198,6 +236,15 @@ class App(ctk.CTk):
         self.textbox.configure(state="disabled")
 
         self._log_intro()
+
+    def _choose_directory(self):
+        folder = filedialog.askdirectory(initialdir=self.download_path, title="Seleccionar Carpeta de Descargas")
+        if folder:
+            self.download_path = folder
+            self.dir_entry.configure(state="normal")
+            self.dir_entry.delete(0, "end")
+            self.dir_entry.insert(0, self.download_path)
+            self.dir_entry.configure(state="readonly")
 
     # ── Log helpers ────────────────────────────────────────────────
     def _log_intro(self):
@@ -267,6 +314,7 @@ class App(ctk.CTk):
         self._stop_event = threading.Event()   # Event fresco en cada descarga
 
         self.btn.configure(state="disabled", text="  Descargando...", fg_color=C_BORDER)
+        self.dir_btn.configure(state="disabled")
         # Mostrar botón Stop
         self.stop_btn.pack(side="right", padx=(0, 8))
         self.progressbar.set(0)
@@ -284,6 +332,7 @@ class App(ctk.CTk):
                     return
 
                 dl = Downloader(
+                    download_path=self.download_path,
                     log=self.log_message,
                     progress=self.update_progress,
                     stop_event=stop_ev,
@@ -307,6 +356,7 @@ class App(ctk.CTk):
         self._stop_event = None
         # Restaurar botón Descargar y ocultar Stop
         self.btn.configure(state="normal", text="  Descargar", fg_color=C_ACCENT)
+        self.dir_btn.configure(state="normal")
         self.stop_btn.configure(state="normal", text="  ⏹ Stop")
         self.stop_btn.pack_forget()
 
