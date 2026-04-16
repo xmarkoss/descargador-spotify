@@ -3,3 +3,4 @@ descargas/
 __pycache__/
 build/
 *.spec
+dist/
