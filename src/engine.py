@@ -46,12 +46,25 @@ def get_base_dir() -> str:
 def get_ffmpeg_dir() -> str:
     """
     Carpeta que contiene ffmpeg.exe y ffprobe.exe:
-    - PyInstaller: sys._MEIPASS (carpeta temporal de extracción).
+    - PyInstaller/Portable: carpeta 'ffmpeg/bin' o 'ffmpeg' junto al ejecutable.
+    - Fallback PyInstaller: sys._MEIPASS (carpeta temporal de extracción).
     - Desarrollo:  <proyecto>/ffmpeg/
     """
+    base = get_base_dir()
+    
+    # Comprobar si ffmpeg.exe está en <base>/ffmpeg/bin
+    ffmpeg_bin = os.path.join(base, 'ffmpeg', 'bin')
+    if os.path.exists(os.path.join(ffmpeg_bin, 'ffmpeg.exe')):
+        return ffmpeg_bin
+        
+    # Comprobar si ffmpeg.exe está directamente en <base>/ffmpeg
+    ffmpeg_root = os.path.join(base, 'ffmpeg')
+    if os.path.exists(os.path.join(ffmpeg_root, 'ffmpeg.exe')):
+        return ffmpeg_root
+
     if getattr(sys, 'frozen', False):
         return sys._MEIPASS          # type: ignore[attr-defined]
-    return os.path.join(get_base_dir(), 'ffmpeg')
+    return os.path.join(base, 'ffmpeg')
 
 # User-Agent de Chrome moderno para evitar bloqueos de Spotify
 HEADERS = {
