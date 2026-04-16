@@ -9,9 +9,12 @@ class UltimateSpotifyDownloader:
         if not os.path.exists(self.download_path):
             os.makedirs(self.download_path)
 
+    def clean_filename(self, name):
+        """Evita errores al guardar archivos en Windows"""
+        return re.sub(r'[\\/*?:"<>|]', "", name).strip()
+
     def get_metadata_oembed(self, url):
-        """Usa el endpoint público oEmbed de Spotify para obtener metadatos sin bloqueos."""
-        # Esta es la 'puerta trasera' legal y gratuita
+        """Extrae el título y artista 100% real de Spotify."""
         oembed_url = f"https://open.spotify.com/oembed?url={url}"
         try:
             response = requests.get(oembed_url, timeout=10)
@@ -20,30 +23,33 @@ class UltimateSpotifyDownloader:
                 title = data.get('title', '')
                 author = data.get('author_name', '')
                 
-                # Formateamos la búsqueda: "Título Artista"
-                search_query = f"{title} {author}".strip()
-                return search_query
+                # Devolvemos el nombre limpio para el archivo y el string de búsqueda
+                clean_name = self.clean_filename(f"{title} - {author}")
+                # El truco: "provided to youtube" filtra covers y directos.
+                search_query = f"{title} {author} provided to youtube" 
+                
+                return clean_name, search_query
             else:
-                return None
+                return None, None
         except Exception as e:
             print(f"[-] Error conectando a oEmbed: {e}")
-            return None
+            return None, None
 
     def download(self, spotify_url):
         print("[*] 1. Extrayendo metadatos a través de oEmbed...")
-        search_query = self.get_metadata_oembed(spotify_url)
+        file_name, search_query = self.get_metadata_oembed(spotify_url)
         
         if not search_query:
-            print("[-] No se pudo descifrar el nombre. ¿Es un enlace válido y público?")
+            print("[-] No se pudo descifrar el nombre.")
             return False
 
-        print(f"[+] Canción detectada: {search_query}")
-        print("[*] 2. Buscando audio de alta calidad en servidores públicos...")
+        print(f"[+] Canción detectada: {file_name}")
+        print("[*] 2. Ejecutando búsqueda de precisión (Sniper Search)...")
 
-        # Configuramos yt-dlp para descargar silenciosamente
         ydl_opts = {
             'format': 'bestaudio/best',
-            'outtmpl': f'{self.download_path}/%(title)s.%(ext)s',
+            # Nombramos el archivo con la info pura de Spotify
+            'outtmpl': f'{self.download_path}/{file_name}.%(ext)s',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -51,14 +57,14 @@ class UltimateSpotifyDownloader:
             }, {
                 'key': 'FFmpegMetadata',
             }],
-            'quiet': True,       # Oculta la basura técnica de la consola
+            'quiet': True,
             'no_warnings': True
         }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # ytsearch1: busca el query y baja el PRIMER resultado
-                ydl.download([f"ytsearch1:{search_query} official audio"])
+                # Volvemos a ytsearch1 pero con la consulta blindada
+                ydl.download([f"ytsearch1:{search_query}"])
             return True
         except Exception as e:
             print(f"[-] Error en el motor de descarga: {e}")
@@ -66,7 +72,7 @@ class UltimateSpotifyDownloader:
 
 if __name__ == "__main__":
     print("=======================================")
-    print("   SPOTIFY ULTIMATE DOWNLOADER v3.0")
+    print("   SPOTIFY ULTIMATE DOWNLOADER v3.2")
     print("=======================================")
     url = input("Pega el enlace de Spotify: ").strip().split('?')[0]
     
