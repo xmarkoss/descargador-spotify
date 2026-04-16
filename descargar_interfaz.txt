@@ -1,0 +1,28 @@
+@echo off
+title Spotify Master Suite - GUI Launcher
+color 0b
+
+echo ===============================================
+echo    INICIANDO INTERFAZ GRAFICA (GUI)
+echo ===============================================
+
+:: Intentar activar el entorno virtual si existe
+if exist venv\Scripts\activate.bat (
+    echo [*] Activando entorno virtual...
+    call venv\Scripts\activate.bat
+) else (
+    echo [!] No se detecto venv, usando Python global...
+)
+
+:: Ejecutar la interfaz
+:: Usamos "python" para ver la consola por si hay errores. 
+:: Si prefieres que no salga la pantalla negra, cambia "python" por "pythonw"
+echo [*] Abriendo ventana...
+python src/gui.py
+
+if %errorlevel% neq 0 (
+    echo.
+    echo [X] Ocurrio un error al abrir la interfaz.
+    echo Asegurate de que 'customtkinter' este instalado.
+    pause
+)
