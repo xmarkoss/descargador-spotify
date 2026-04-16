@@ -14,7 +14,7 @@ class UltimateSpotifyDownloader:
         return re.sub(r'[\\/*?:"<>|]', "", name).strip()
 
     def get_metadata_oembed(self, url):
-        """Extrae el título y artista 100% real de Spotify."""
+        """Extrae el título y artista de Spotify."""
         oembed_url = f"https://open.spotify.com/oembed?url={url}"
         try:
             response = requests.get(oembed_url, timeout=10)
@@ -23,9 +23,7 @@ class UltimateSpotifyDownloader:
                 title = data.get('title', '')
                 author = data.get('author_name', '')
                 
-                # Devolvemos el nombre limpio para el archivo y el string de búsqueda
                 clean_name = self.clean_filename(f"{title} - {author}")
-                # El truco: "provided to youtube" filtra covers y directos.
                 search_query = f"{title} {author} provided to youtube" 
                 
                 return clean_name, search_query
@@ -44,26 +42,32 @@ class UltimateSpotifyDownloader:
             return False
 
         print(f"[+] Canción detectada: {file_name}")
-        print("[*] 2. Ejecutando búsqueda de precisión (Sniper Search)...")
+        print("[*] 2. Descargando audio y carátula del álbum...")
 
+        # Configuramos yt-dlp para descargar el audio y la imagen
         ydl_opts = {
             'format': 'bestaudio/best',
-            # Nombramos el archivo con la info pura de Spotify
             'outtmpl': f'{self.download_path}/{file_name}.%(ext)s',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '320',
-            }, {
-                'key': 'FFmpegMetadata',
-            }],
+            'writethumbnail': True, # ¡NUEVO! Le decimos que descargue la portada
+            'postprocessors': [
+                {
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '320',
+                }, 
+                {
+                    'key': 'EmbedThumbnail', # ¡NUEVO! Incrusta la imagen en el MP3
+                },
+                {
+                    'key': 'FFmpegMetadata', # Inyecta el resto de los metadatos (artista, título)
+                }
+            ],
             'quiet': True,
             'no_warnings': True
         }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Volvemos a ytsearch1 pero con la consulta blindada
                 ydl.download([f"ytsearch1:{search_query}"])
             return True
         except Exception as e:
@@ -72,7 +76,8 @@ class UltimateSpotifyDownloader:
 
 if __name__ == "__main__":
     print("=======================================")
-    print("   SPOTIFY ULTIMATE DOWNLOADER v3.2")
+    print("   SPOTIFY ULTIMATE DOWNLOADER v4.0")
+    print("   (Audio 320kbps + Album Cover)")
     print("=======================================")
     url = input("Pega el enlace de Spotify: ").strip().split('?')[0]
     
