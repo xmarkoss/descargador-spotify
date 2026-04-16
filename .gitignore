@@ -1,3 +1,5 @@
 venv/
 descargas/
 __pycache__/
+build/
+*.spec

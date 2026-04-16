@@ -16,6 +16,7 @@ Estrategia de búsqueda en YouTube (precisión máxima):
 from __future__ import annotations
 
 import os
+import sys
 import re
 import json
 import time
@@ -25,6 +26,32 @@ from typing import Optional
 import requests
 import yt_dlp
 from bs4 import BeautifulSoup
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Resolución de rutas: funciona en desarrollo Y dentro del .exe
+# ──────────────────────────────────────────────────────────────────
+
+def get_base_dir() -> str:
+    """
+    Directorio base de la aplicación:
+    - PyInstaller (.exe): carpeta donde está el ejecutable.
+    - Desarrollo:        carpeta raíz del proyecto (un nivel arriba de src/).
+    """
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_ffmpeg_dir() -> str:
+    """
+    Carpeta que contiene ffmpeg.exe y ffprobe.exe:
+    - PyInstaller: sys._MEIPASS (carpeta temporal de extracción).
+    - Desarrollo:  <proyecto>/ffmpeg/
+    """
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS          # type: ignore[attr-defined]
+    return os.path.join(get_base_dir(), 'ffmpeg')
 
 # User-Agent de Chrome moderno para evitar bloqueos de Spotify
 HEADERS = {
@@ -365,15 +392,16 @@ class YouTubeSniper:
 class Downloader:
     """Descarga una lista de tracks a MP3 320kbps con portada y metadatos."""
 
-    def __init__(self, download_path: str = "descargas",
+    def __init__(self, download_path: str = "",
                  log=print, progress=None,
                  stop_event: Optional[threading.Event] = None):
-        self.download_path = download_path
+        # Si no se especifica ruta, usa <base>/descargas
+        self.download_path = download_path or os.path.join(get_base_dir(), 'descargas')
         self.log = log
         self.progress = progress or (lambda current, total: None)
         self.stop_event = stop_event
         self.sniper = YouTubeSniper(log=log)
-        os.makedirs(download_path, exist_ok=True)
+        os.makedirs(self.download_path, exist_ok=True)
 
     def download_all(self, tracks: list[dict]):
         total = len(tracks)
@@ -412,12 +440,14 @@ class Downloader:
             # ── Descargar y convertir ──
             out_path = os.path.join(self.download_path, f"{filename}.%(ext)s")
             ydl_opts = {
-                "format":          "bestaudio/best",
-                "outtmpl":         out_path,
-                "writethumbnail":  True,
-                "quiet":           True,
-                "no_warnings":     True,
-                "postprocessors":  [
+                "format":           "bestaudio/best",
+                "outtmpl":          out_path,
+                "writethumbnail":   True,
+                "quiet":            True,
+                "no_warnings":      True,
+                # FFmpeg resuelto para dev y para .exe empaquetado
+                "ffmpeg_location":  get_ffmpeg_dir(),
+                "postprocessors":   [
                     {
                         "key":              "FFmpegExtractAudio",
                         "preferredcodec":   "mp3",
